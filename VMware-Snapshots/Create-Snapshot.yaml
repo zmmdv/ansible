@@ -1,0 +1,17 @@
+- name: Reverting VM Snapshot
+  hosts: localhost
+  tasks:
+  - name: Reverting Snapshots
+    vmware_guest_snapshot:
+     validate_certs: no
+     hostname: YOUR VCENTER IP or FQDN
+     username: YOUR VCENTER USER
+     password: YOUR VCENTER USER PASSWORD
+     datacenter: EHIM Datacenter
+     folder: FOLDER OF VIRTUAL MACHINE
+     name: VIRTUAL MACHINE NAME
+     state: present
+     snapshot_name: YOUR SNAPSHOT NAME
+    delegate_to: localhost
+
+## You can copy and paste as many as you have virtual machines
