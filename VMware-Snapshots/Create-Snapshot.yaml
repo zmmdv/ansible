@@ -7,7 +7,7 @@
      hostname: YOUR VCENTER IP or FQDN
      username: YOUR VCENTER USER
      password: YOUR VCENTER USER PASSWORD
-     datacenter: EHIM Datacenter
+     datacenter: YOUR DATACENTER
      folder: FOLDER OF VIRTUAL MACHINE
      name: VIRTUAL MACHINE NAME
      state: present
