@@ -1,0 +1,241 @@
+- hosts: all
+  become: yes
+  tasks:
+
+  - name: add every machine to hosts file
+    lineinfile:
+      dest: /etc/hosts
+      line: "{{ hostvars[item].ansible_host }}     {{ hostvars[item].inventory_hostname_short }}"
+      state: present
+    with_items: "{{ groups.all }}"
+
+  - name: Install a list of packages
+    apt:
+      pkg:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+
+  - name: Add Docker GPG apt Key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add Docker Repository
+    apt_repository:
+      repo: deb https://download.docker.com/linux/ubuntu bionic stable
+      state: present
+
+  - name: Update all packages to their latest version
+    apt:
+      name: "*"
+      state: latest
+
+  - name: Install Containerd.io
+    apt:
+      pkg:
+      - containerd.io={{ containerd_version }}
+
+  - name: Creates directory for containerd daemon
+    file:
+      path: /etc/containerd
+      state: directory
+
+  - name: Configure containerd
+    shell: containerd config default | sudo tee /etc/containerd/config.toml
+    args:
+      executable: /bin/bash
+
+  - name: Changing SystemdGroup
+    lineinfile:
+      path: /etc/containerd/config.toml
+      insertafter: ".containerd.runtimes.runc.options]" 
+      line: "             SystemdCgroup = true"
+      firstmatch: yes
+      state: present  
+    register: lineinfileexample
+
+  - name: Add a line to a file if the file does not exist, without passing regexp
+    ansible.builtin.lineinfile:
+      path: /etc/modules-load.d/containerd.conf
+      line: "{{ item }}"
+    with_items:
+      - br_netfilter
+      - overlay
+      create: yes
+
+  - name: Add needed modules without reloading
+    modprobe:
+      name: "{{ item }}"
+    with_items:  
+      - overlay
+      - br_netfilter
+
+  - name: Just force systemd to reread configs
+    ansible.builtin.systemd:
+      daemon_reload: yes
+
+
+  - name: Start and enable containerd
+    systemd:
+     name: containerd
+     enabled: yes
+     state: started
+
+  - name: Disable swap permanently, persist reboots
+    lineinfile:
+      path: /etc/fstab
+      regexp: '/swap.img'
+      state: absent
+
+  - name: add Kubernetes apt-key
+    apt_key:
+      url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+      state: present
+
+  - name: add Kubernetes' APT repository
+    apt_repository:
+     repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+     state: present
+     filename: 'kubernetes'
+
+  - name: install kubelet
+    apt:
+      name: kubelet={{ kubelet_version }}
+      state: present
+
+  - name: install kubeadm
+    apt:
+      name: kubeadm={{ kubeadm_version }}
+      state: present
+
+  - name: Loading kernel module
+    ansible.builtin.lineinfile:
+      path: /etc/modules-load.d/k8s.conf
+      line: br_netfilter
+      create: yes  
+
+  - name: Add the br_netfiler module
+    modprobe:
+      name: br_netfilter
+      state: present
+
+  - name: Letting iptables see bridged traffic
+    sysctl:
+     name: "{{ item.name }}"
+     value: "{{ item.value }}"
+     sysctl_file: /etc/sysctl.d/k8s.conf
+    with_items:
+    - name: net.bridge.bridge-nf-call-ip6tables
+      value: '1'
+    - name: net.bridge.bridge-nf-call-iptables
+      value: '1'
+    - name: net.ipv4.ip_forward
+      value: '1'
+
+  - name: cgroup driver systemd
+    ansible.builtin.lineinfile:
+      path: /var/lib/kubelet/kubeadm-flags.env
+      line: KUBELET_EXTRA_ARGS=--cgroup-driver=systemd
+      create: yes
+
+  - name: Start and enable kubelet
+    systemd:
+     name: kubelet
+     enabled: yes
+     state: started
+
+  - name: Rebooting before initializing cluster
+    reboot:
+     msg: " rebooting after installing os and update"
+
+- hosts: master
+  become: yes
+  tasks:
+
+  - name: install kubectl
+    apt:
+      name: kubectl={{ kubectl_version }}
+      state: present
+
+  - name: initialize the cluster
+    shell: kubeadm init
+    args:
+     chdir: $HOME
+     creates: cluster_initialized.txt
+
+  - name: create .kube directory
+    become_user: "{{ ansible_user }}"
+    file:
+     path: ~/.kube
+     state: directory
+     mode: 0755
+
+  - name: copy admin.conf to user's kube config
+    become: yes
+    copy:
+     src: /etc/kubernetes/admin.conf
+     dest: /home/{{ ansible_user }}/.kube/config
+     remote_src: yes
+     owner: "{{ ansible_user }}"
+
+  - name: install Pod network
+    become_user: "{{ ansible_user }}"
+    shell: kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+    args:
+     chdir: $HOME
+     creates: pod_network_setup.txt
+
+  - name: get join command
+    shell: kubeadm token create --print-join-command
+    register: join_command_raw
+
+  - name: set join command
+    set_fact:
+      join_command: "{{ join_command_raw.stdout_lines[0] }}"
+
+  - name: Configure ufw rules for master
+    ufw: rule={{ item.rule }} port={{ item.port }} proto={{ item.proto }}
+    with_items:
+      - { rule: 'limit', port: '{{ ssh_port | default("22") }}', proto: 'tcp' }
+      - { rule: 'allow', port: '6443', proto: 'tcp' }
+      - { rule: 'allow', port: '2379', proto: 'tcp' }
+      - { rule: 'allow', port: '2380', proto: 'tcp' }
+      - { rule: 'allow', port: '10250', proto: 'tcp' }
+      - { rule: 'allow', port: '10251', proto: 'tcp' }
+      - { rule: 'allow', port: '6781', proto: 'tcp' }
+      - { rule: 'allow', port: '6782', proto: 'tcp' }
+      - { rule: 'allow', port: '6783', proto: 'tcp' }
+      - { rule: 'allow', port: '6784', proto: 'tcp' }
+      - { rule: 'allow', port: '6783', proto: 'udp' }
+      - { rule: 'allow', port: '6784', proto: 'udp' }
+
+  - name: Enabling UFW
+    ufw:
+      state: enabled      
+
+- hosts: workers
+  become: yes
+  tasks:
+  - name: join cluster
+    shell: "{{ hostvars['master'].join_command }} >> node_joined.txt"
+    args:
+      chdir: $HOME
+      creates: node_joined.txt
+
+  - name: Configure ufw rules for workers
+    ufw: rule={{ item.rule }} port={{ item.port }} proto={{ item.proto }}
+    with_items:
+      - { rule: 'limit', port: '{{ ssh_port | default("22") }}', proto: 'tcp' }
+      - { rule: 'allow', port: '30000:32767', proto: 'tcp' }
+      - { rule: 'allow', port: '6781', proto: 'tcp' }
+      - { rule: 'allow', port: '6782', proto: 'tcp' }
+      - { rule: 'allow', port: '6783', proto: 'tcp' }
+      - { rule: 'allow', port: '6784', proto: 'tcp' }
+      - { rule: 'allow', port: '6783', proto: 'udp' }
+      - { rule: 'allow', port: '6784', proto: 'udp' }    
+
+  - name: Enabling UFW
+    ufw:
+      state: enabled
