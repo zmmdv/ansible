@@ -2,6 +2,7 @@
 ##the user for playbook execution
 ansible_user=kubeadmin
 
+
 ##Private key or password for SSH connection leave commented if you use --ask-pass
 
 #private_key_file=~/.ssh/id_rsa
