@@ -9,7 +9,6 @@ ansible_user=kubeadmin
 ansible_ssh_pass=123
 
 ##Docker-CE version
-containerd_version=1.4.4-1
 
 ##The version of kubernetes cluster you will bootstrap
 
