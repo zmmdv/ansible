@@ -14,4 +14,17 @@
      snapshot_name: YOUR SNAPSHOT NAME
     delegate_to: localhost
 
+  - name: Set the state of a virtual machine to power-on
+    vmware_guest_powerstate:
+      hostname: VCENTER-IP
+      username: VCENTER-USERNAME
+      password: PASSWORD
+      validate_certs: no
+      folder: FOLDER
+      name: VMNAME
+      state: powered-on
+    delegate_to: localhost
+    register: deploy
+
+
 ## You can copy and paste as many as you have virtual machines
