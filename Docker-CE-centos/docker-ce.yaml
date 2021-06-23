@@ -1,0 +1,25 @@
+- hosts: all
+  become: yes
+  tasks:
+  - name: add docker-ce yum repo
+    yum_repository:
+      name: docker-ce
+      description: Docker CE Stable repo
+      baseurl: https://download.docker.com/linux/centos/7/x86_64/stable/
+      gpgkey: https://download.docker.com/linux/centos/gpg
+      gpgcheck: yes
+
+  - name: install docker-ce
+    yum:
+      name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      state: present
+
+  - name: start docker
+    systemd:
+      daemon_reload: yes
+      name: docker
+      enabled: yes
+      state: started
