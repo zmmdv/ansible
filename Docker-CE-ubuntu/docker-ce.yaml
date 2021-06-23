@@ -1,0 +1,47 @@
+- hosts: all
+  become: yes
+  tasks:
+
+  - name: Add Docker GPG apt Key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add Docker Repository
+    apt_repository:
+      repo: deb https://download.docker.com/linux/ubuntu bionic stable
+      state: present
+
+  - name: Install packages for docker-ce
+    package:
+      name:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - gnupg
+        - lsb-release
+      state: present
+
+  - name: update all packages
+    apt:
+     name: '*'
+     state: latest
+     update_cache: yes
+
+  - name: Upgrade all apt packages
+    apt: 
+      upgrade: dist
+
+  - name: Install docker-ce
+    package:
+      name:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+      state: present
+
+  - name: Start and enable docker
+    systemd:
+     name: docker
+     enabled: yes
+     state: started
