@@ -157,6 +157,8 @@
       - { rule: 'allow', port: '2380', proto: 'tcp' }
       - { rule: 'allow', port: '10250', proto: 'tcp' }
       - { rule: 'allow', port: '10251', proto: 'tcp' }
+      - { rule: 'allow', port: '10259', proto: 'tcp' }
+      - { rule: 'allow', port: '10257', proto: 'tcp' }
       - { rule: 'allow', port: '6781', proto: 'tcp' }
       - { rule: 'allow', port: '6782', proto: 'tcp' }
       - { rule: 'allow', port: '6783', proto: 'tcp' }
@@ -183,6 +185,7 @@
       - { rule: 'limit', port: '{{ ssh_port | default("22") }}', proto: 'tcp' }
       - { rule: 'allow', port: '30000:32767', proto: 'tcp' }
       - { rule: 'allow', port: '6781', proto: 'tcp' }
+      - { rule: 'allow', port: '10250', proto: 'tcp' }
       - { rule: 'allow', port: '6782', proto: 'tcp' }
       - { rule: 'allow', port: '6783', proto: 'tcp' }
       - { rule: 'allow', port: '6784', proto: 'tcp' }
