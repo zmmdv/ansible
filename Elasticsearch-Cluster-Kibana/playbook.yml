@@ -1,0 +1,193 @@
+- hosts: elk
+  become: yes
+  tasks:
+
+  - name: Set up multiple authorized keys
+    authorized_key:
+      user: root
+      state: present
+      key: '{{ item }}'
+    with_file:
+      - ~/.ssh/id_rsa.pub
+
+  - name: add every machine to hosts file
+    lineinfile:
+      dest: /etc/hosts
+      line: "{{ hostvars[item].ansible_host }}     {{ hostvars[item].inventory_hostname_short }}"
+      state: present
+    with_items: "{{ groups.all }}"
+
+  - name: create physical volume and volume group for elasticsearch
+    lvg:
+      vg: elasticsearch
+      pvs: /dev/sdb
+
+  - name: create logical volume for elasticsearch
+    lvol:
+      vg: elasticsearch
+      lv: elasticsearch
+      size: 100%FREE
+
+  - name: format elasticsearch logical volume with xfs filesystem
+    filesystem:
+      dev: /dev/mapper/elasticsearch-elasticsearch
+      fstype: xfs
+
+  - name: create elasticsearch directory
+    file:
+      path: /data/elasticsearch
+      state: directory
+
+  - name: mount elasticsearch logical volume
+    mount:
+      path: /data/elasticsearch
+      src: /dev/mapper/elasticsearch-elasticsearch
+      fstype: xfs
+      state: mounted
+
+  - name: Ufw ports for elasticsearch and kibana Ubuntu
+    ufw:
+      rule: allow
+      port: "{{ item }}"
+      proto: tcp
+    with_items:
+     - 9200
+     - 9300
+     - 5601      
+    when: ansible_facts['os_family'] == "Debian"
+
+  - name: Firewalld ports for elasticsearch and kibana CentOS
+    firewalld:
+     port: "{{ item }}"
+     state: enabled
+     permanent: yes
+     immediate: yes
+    with_items:
+     - 9200/tcp
+     - 9300/tcp
+     - 5601/tcp
+    when: ansible_facts['os_family'] == "RedHat"
+
+- hosts: elk1
+  roles:
+    - role: elastic.elasticsearch
+  vars:
+    es_version: "7.15.0"
+    es_heap_size: "2g"
+    es_data_dirs:
+      - "/data/elasticsearch/data"
+    es_log_dir: "/data/elasticsearch/log"    
+    es_config:
+      cluster.name: "elasticsearch"
+      cluster.initial_master_nodes: "elk1,elk2,elk3"
+      discovery.seed_hosts: "elk1:9300,elk2:9300,elk3:9300"
+      http.host: 0.0.0.0
+      http.port: 9200
+      node.data: true
+      node.master: true
+      transport.host: 0.0.0.0
+      transport.port: 9300
+      bootstrap.memory_lock: false    
+    es_plugins:
+     - plugin: ingest-attachment
+  tasks:
+
+- hosts: elk2
+  roles:
+    - role: elastic.elasticsearch
+  vars:
+    es_version: "7.15.0"
+    es_heap_size: "2g"
+    es_data_dirs:
+      - "/data/elasticsearch/data"
+    es_log_dir: "/data/elasticsearch/log"     
+    es_config:
+      cluster.name: "elasticsearch"
+      cluster.initial_master_nodes: "elk1,elk2,elk3"
+      discovery.seed_hosts: "elk1:9300,elk2:9300,elk3:9300"
+      http.host: 0.0.0.0
+      http.port: 9200
+      node.data: true
+      node.master: true
+      transport.host: 0.0.0.0
+      transport.port: 9300
+      bootstrap.memory_lock: false   
+    es_plugins:
+     - plugin: ingest-attachment
+
+- hosts: elk3
+  roles:
+    - role: elastic.elasticsearch
+  vars:
+    es_version: "7.15.0"
+    es_heap_size: "2g"
+    es_data_dirs:
+      - "/data/elasticsearch/data"
+    es_log_dir: "/data/elasticsearch/log"   
+    es_config:
+      cluster.name: "elasticsearch"
+      cluster.initial_master_nodes: "elk1,elk2,elk3"
+      discovery.seed_hosts: "elk1:9300,elk2:9300,elk3:9300"
+      http.host: 0.0.0.0
+      http.port: 9200
+      node.data: true
+      node.master: true
+      transport.host: 0.0.0.0
+      transport.port: 9300
+      bootstrap.memory_lock: false     
+    es_plugins:
+     - plugin: ingest-attachment
+
+- hosts: elk
+  become: yes
+  tasks:
+
+  - name: Disable xpack
+    lineinfile:
+      path: /etc/elasticsearch/elasticsearch.yml
+      insertafter: 'transport.port: 9300'
+      line: "{{ item }}"
+      state: present
+    with_items:
+    - 'xpack.security.enabled: false'
+    - 'xpack.monitoring.collection.enabled: true'
+
+  - name: Restart Elasticsearch
+    ansible.builtin.systemd:
+      state: restarted
+      daemon_reload: yes
+      enabled: yes
+      name: elasticsearch
+
+  - name: Installing Kibana Ubuntu
+    package:
+      name: kibana=7.15.0
+      state: present
+    when: ansible_facts['os_family'] == "Debian"
+
+  - name: Installing Kibana Centos
+    package:
+      name: kibana-7.15.0
+      state: present
+    when: ansible_facts['os_family'] == "RedHat"
+
+  - name: Making kibana acceseble on 0.0.0.0
+    lineinfile:
+      path: /etc/kibana/kibana.yml
+      insertafter: '#server.host: "localhost"'
+      line: 'server.host: "0.0.0.0"'
+      state: present
+
+  - name: Providing elastic hosts for kibana
+    lineinfile:
+      path: /etc/kibana/kibana.yml
+      insertafter: '#elasticsearch.hosts: ["http://localhost:9200"]'
+      line: 'elasticsearch.hosts: ["http://elk1:9200","http://elk2:9200","http://elk3:9200",]'
+      state: present
+
+  - name: Restart Kibana
+    ansible.builtin.systemd:
+      state: restarted
+      daemon_reload: yes
+      enabled: yes
+      name: kibana
