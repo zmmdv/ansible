@@ -1,0 +1,64 @@
+- hosts: all
+  become: yes
+  tasks:
+
+  - name: add every machine to hosts file
+    lineinfile:
+      dest: /etc/hosts
+      line: "{{ hostvars[item].ansible_host }}     {{ hostvars[item].inventory_hostname_short }}"
+      state: present
+    with_items: "{{ groups.all }}"
+
+  - name: Set up multiple authorized keys
+    authorized_key:
+      user: root
+      state: present
+      key: '{{ item }}'
+    with_file:
+      - ~/.ssh/id_rsa.pub
+
+- hosts: balancers
+  become: yes
+  tasks:
+
+  - name: sysctl for haproxy
+    sysctl:
+      name: net.ipv4.ip_nonlocal_bind
+      value: "1"
+      state: present
+      ignoreerrors: yes
+      sysctl_set: yes
+
+  - name: Installing dependencies Ubuntu
+    package:
+      name: "{{ item }}"
+      state: present
+    with_items:
+    - haproxy
+    - keepalived
+    - psmisc
+  
+  - name: Copy keepalived config
+    template:
+      src: keepalived.conf.j2
+      dest: /etc/keepalived/keepalived.conf
+      mode: 0644
+
+  - name: Restart keepalived after changing config
+    ansible.builtin.systemd:
+      state: restarted
+      enabled: yes
+      name: keepalived
+
+  - name: Copy haproxy config
+    template:
+      src: haproxy.conf.j2
+      dest: /etc/haproxy/haproxy.cfg
+      mode: 0644
+
+  - name: Restart haproxy after changing config
+    ansible.builtin.systemd:
+      state: restarted
+      enabled: yes
+      name: haproxy
+ 

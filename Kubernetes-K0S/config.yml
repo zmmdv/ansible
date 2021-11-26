@@ -1,0 +1,56 @@
+apiVersion: k0sctl.k0sproject.io/v1beta1
+kind: Cluster
+metadata:
+  name: Prod-K8S
+spec:
+  hosts:
+  - ssh:
+      address: 192.168.60.101
+      user: root
+      port: 22
+      keyPath: /root/.ssh/id_rsa
+    role: controller
+  - ssh:
+      address: 192.168.60.102
+      user: root
+      port: 22
+      keyPath: /root/.ssh/id_rsa
+    role: controller
+  - ssh:
+      address: 192.168.60.103
+      user: root
+      port: 22
+      keyPath: /root/.ssh/id_rsa
+    role: controller
+  - ssh:
+      address: 192.168.60.104
+      user: root
+      port: 22
+      keyPath: /root/.ssh/id_rsa
+    role: worker
+  - ssh:
+      address: 192.168.60.105
+      user: root
+      port: 22
+      keyPath: /root/.ssh/id_rsa
+    role: worker
+  - ssh:
+      address: 192.168.60.106
+      user: root
+      port: 22
+      keyPath: /root/.ssh/id_rsa
+    role: worker 
+  k0s:
+    version: 1.22.2+k0s.2
+    config:
+      spec:
+        api:
+          externalAddress: 192.168.60.100
+          sans:
+          - 192.168.60.100      
+        network:
+          podCIDR: 10.244.0.0/16
+          serviceCIDR: 10.96.0.0/12
+          provider: calico
+        telemetry:
+          enabled: false
