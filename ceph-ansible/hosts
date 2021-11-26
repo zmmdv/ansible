@@ -1,0 +1,46 @@
+# Ceph admin user for SSH and Sudo
+[all:vars]
+ansible_ssh_user=YOUR_USER
+ansible_become=true
+ansible_become_method=sudo
+ansible_become_user=root
+private_key_file=~/.ssh/id_rsa
+[all]
+
+ceph1 ansible_host=192.168.60.1
+ceph2 ansible_host=192.168.60.2
+ceph3 ansible_host=192.168.60.3
+
+# Ceph Monitor Nodes
+[mons]
+ceph1
+ceph2
+ceph3
+
+# MDS Nodes
+[mdss]
+ceph1
+ceph2
+ceph3
+
+# RGW
+[rgws]
+ceph1
+ceph2
+ceph3
+
+# Manager Daemon Nodes
+[mgrs]
+ceph1
+ceph2
+ceph3
+
+# set OSD (Object Storage Daemon) Node
+[osds]
+ceph1
+ceph2
+ceph3
+
+# Grafana server
+[grafana-server]
+ceph1
