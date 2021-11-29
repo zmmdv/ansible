@@ -1,0 +1,52 @@
+- hosts: all
+  tasks:
+
+  - include_vars: users.yml  
+
+  - name: Creating file for sudoers.d
+    file:
+      path: "/etc/sudoers.d/user-list"
+      state: touch
+
+  - name: Ansible replace string example
+    replace:
+      path: /etc/ssh/sshd_config
+      regexp: 'PermitRootLogin no'
+      replace: "PermitRootLogin yes"
+    when: ansible_facts['os_family'] == "Debian"
+
+  - name: restart ssh service
+    service:
+      name: sshd
+      state: restarted
+    when: ansible_facts['os_family'] == "Debian"
+    
+  - name: Create list of users
+    user:
+      name: "{{ item.user }}"
+      append: yes
+      state: present
+      createhome: yes
+      shell: /bin/bash
+    with_items: '{{ users }}'
+
+  - name: Set up multiple authorized keys for root
+    authorized_key:
+      user: root
+      state: present
+      key: "{{ lookup('file', './keys/{{ item.user }}.pub')}}"
+    with_items: '{{ users }}'
+
+  - name: Set up multiple authorized keys for root
+    authorized_key:
+      user: '{{ item.user }}'
+      state: present
+      key: "{{ lookup('file', './keys/{{ item.user }}.pub')}}"
+    with_items: '{{ users }}'
+
+  - name: Allow users to have passwordless sudo
+    lineinfile:
+      dest: /etc/sudoers.d/user-list
+      line: '{{ item.user }} ALL=(ALL) NOPASSWD: ALL'
+      validate: 'visudo -cf %s'
+    with_items: '{{ users }}'
