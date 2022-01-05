@@ -1,0 +1,28 @@
+[all:vars]
+ansible_connection=ssh
+ansible_ssh_pass=123
+ansible_user=root
+
+[balancers:vars]
+virtual_ip=10.4.90.100
+
+[all]
+
+minio-1 ansible_host=10.4.90.61
+minio-2 ansible_host=10.4.90.62
+minio-3 ansible_host=10.4.90.63
+minio-4 ansible_host=10.4.90.64
+
+[minio]
+
+minio-1
+minio-2
+minio-3
+minio-4
+
+[balancers]
+
+minio-1
+minio-2
+minio-3
+minio-4

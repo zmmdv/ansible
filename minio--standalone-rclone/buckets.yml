@@ -1,0 +1,3 @@
+buckets:
+  - bucket: /data/minio/{{ first_bucket }}
+  - bucket: /data/minio/{{ second_bucket }}

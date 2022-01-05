@@ -1,0 +1,9 @@
+[Unit]
+Description=Minio Standalone Replication Script
+
+[Service]
+ExecStart=/usr/local/bin/rclone.sh
+Type=simple
+
+[Install]
+WantedBy=multi-user.target

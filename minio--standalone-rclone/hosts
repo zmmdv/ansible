@@ -1,0 +1,23 @@
+[all:vars]
+ansible_connection=ssh
+ansible_ssh_pass=123
+ansible_user=root
+virtual_ip=10.4.90.100
+minio_root_user=admin
+minio_root_password=kn7bnV3EMCnGVv7whBhMB
+first_bucket=test
+second_bucket=new
+
+[all]
+
+minio-1 ansible_host=10.4.90.61
+minio-2 ansible_host=10.4.90.62
+minio-3 ansible_host=10.4.90.63
+minio-4 ansible_host=10.4.90.64
+
+[minio]
+
+minio-1
+minio-2
+minio-3
+minio-4

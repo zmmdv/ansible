@@ -1,0 +1,7 @@
+#!/bin/bash
+while true; do
+{% for server in groups['minio'] %}
+  rclone sync /data/minio/new/ {{ hostvars[server]["inventory_hostname_short"] }}:new
+  rclone sync /data/minio/test/ {{ hostvars[server]["inventory_hostname_short"] }}:test
+{% endfor -%}
+done

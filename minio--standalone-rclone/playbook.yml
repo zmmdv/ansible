@@ -1,0 +1,202 @@
+- hosts: minio
+  become: yes
+  vars_files:
+    - buckets.yml
+  tasks:
+
+  - name: Set up multiple authorized keys
+    authorized_key:
+      user: root
+      state: present
+      key: '{{ item }}'
+    with_file:
+      - ~/.ssh/id_rsa.pub
+
+  - name: add every machine to hosts file
+    lineinfile:
+      dest: /etc/hosts
+      line: "{{ hostvars[item].ansible_host }}     {{ hostvars[item].inventory_hostname_short }}"
+      state: present
+    with_items: "{{ groups.all }}"
+
+  - name: create physical volume and volume group for minio
+    lvg:
+      vg: minio
+      pvs: /dev/sdb
+
+  - name: create logical volume for minio
+    lvol:
+      vg: minio
+      lv: minio
+      size: 100%FREE
+
+  - name: format minio logical volume with xfs filesystem
+    filesystem:
+      dev: /dev/mapper/minio-minio
+      fstype: xfs
+
+  - name: create minio directory
+    file:
+      path: /data/minio
+      state: directory
+
+  - name: mount minio logical volume
+    mount:
+      path: /data/minio
+      src: /dev/mapper/minio-minio
+      fstype: xfs
+      state: mounted
+
+  - name: sysctl for haproxy
+    sysctl:
+      name: net.ipv4.ip_nonlocal_bind
+      value: "1"
+      state: present
+      ignoreerrors: yes
+      sysctl_set: yes
+
+  - name: Installing dependencies Ubuntu
+    retries: 3
+    package:
+      name: "{{ item }}"
+      state: present
+    with_items:
+    - haproxy
+    - keepalived
+    - psmisc
+  
+  - name: Copy keepalived config
+    template:
+      src: keepalived.conf.j2
+      dest: /etc/keepalived/keepalived.conf
+      mode: 0644
+
+  - name: Restart keepalived after changing config
+    ansible.builtin.systemd:
+      state: restarted
+      enabled: yes
+      name: keepalived
+
+  - name: Copy haproxy config
+    template:
+      src: haproxy.conf.j2
+      dest: /etc/haproxy/haproxy.cfg
+      mode: 0644
+
+  - name: Restart haproxy after changing config
+    ansible.builtin.systemd:
+      state: restarted
+      enabled: yes
+      name: haproxy
+
+  - name: create downloads directory
+    file:
+      path: "./downloads/"
+      state: directory
+    delegate_to: localhost
+    connection: local
+    run_once: true
+    become: no
+
+  - name: download minio binary
+    get_url:
+      url: "https://dl.min.io/server/minio/release/linux-amd64/minio"
+      dest: "./downloads/"
+    delegate_to: localhost
+    connection: local
+    run_once: true
+    become: no
+
+  - name: Create minio group
+    group:
+      name: minio
+      state: present
+
+  - name: Create Users Task
+    user:
+      name: minio
+      state: present
+      shell: /bin/bash
+      group: minio
+
+  - name: Recursively change ownership of a minio directory
+    ansible.builtin.file:
+      path: /data/minio
+      state: directory
+      recurse: yes
+      owner: minio
+      group: minio
+
+  - name: Copy minio binary to servers
+    ansible.builtin.copy:
+      src: ./downloads/minio
+      dest: /usr/local/bin/
+      owner: minio
+      group: minio
+      mode: u+x
+
+  - name: Copy minio systemd file
+    template:
+      src: minio.systemd.j2
+      dest: /etc/systemd/system/minio.service
+      mode: 0644
+
+  - name: Copy minio envs file
+    template:
+      src: minio.envs.j2
+      dest: /etc/default/minio
+      mode: 0644
+    
+  - name: create bucket directories
+    file:
+      path: "{{ item.bucket }}"
+      state: directory
+      owner: minio
+      group: minio
+      mode: 0775
+    with_items: '{{ buckets }}'
+
+  - name: Restart minio after changing config
+    ansible.builtin.systemd:
+      state: restarted
+      enabled: yes
+      name: minio
+      daemon_reload: yes
+
+  - name: Copy rclone binary to servers
+    ansible.builtin.copy:
+      src: ./downloads/rclone
+      dest: /usr/local/bin/
+      mode: u+x
+
+  - name: Recursively change ownership of a rclone directory
+    ansible.builtin.file:
+      path: /root/.config/rclone
+      state: directory
+      recurse: yes
+
+  - name: Copy rclone envs file
+    template:
+      src: rclone.j2
+      dest: /root/.config/rclone/rclone.conf
+      mode: 0644
+
+  - name: Copy rclone script
+    template:
+      src: rclone.script.j2
+      dest: /usr/local/bin/rclone.sh
+      mode: +x
+
+  - name: Copy rclone systemd file
+    template:
+      src: rclone.systemd.j2
+      dest: /etc/systemd/system/rclone.service
+      mode: 0644
+
+  - name: Restart rclone after changing config
+    ansible.builtin.systemd:
+      state: restarted
+      enabled: yes
+      name: rclone
+      daemon_reload: yes
+    when: inventory_hostname == ansible_play_batch[0]

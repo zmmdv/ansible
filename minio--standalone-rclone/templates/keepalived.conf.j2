@@ -1,0 +1,37 @@
+vrrp_script haproxy-check {
+  script "/bin/killall -0 haproxy"
+  interval 2
+  weight 20
+}
+
+vrrp_instance balancer {
+  state BACKUP
+  interface {{ ansible_default_ipv4.interface }}
+  virtual_router_id 47
+  priority 101
+  advert_int 3
+
+  unicast_src_ip {{ ansible_host }}
+  unicast_peer {
+  {% for host in ansible_play_batch -%}
+    {% if hostvars[host].ansible_host != ansible_host -%}
+    {{ hostvars[host].ansible_host }}
+    {% endif -%}
+  {% endfor -%}
+    }
+
+   virtual_ipaddress {
+     {{ virtual_ip }} dev {{ ansible_default_ipv4.interface }}
+    }
+
+
+   track_script {
+     haproxy-check weight 20
+    }
+
+
+   authentication {
+     auth_type PASS
+     auth_pass fjwmJUQ
+    }
+}
