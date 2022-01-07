@@ -1,0 +1,31 @@
+- hosts: all
+  become: yes
+  tasks:
+
+  - name: create physical volume and volume group for minio
+    lvg:
+      vg: "{{ volume_name }}"
+      pvs: "{{ disk_path }}"
+
+  - name: create logical volume for minio
+    lvol:
+      vg: "{{ volume_name }}"
+      lv: "{{ volume_name }}"
+      size: 100%FREE
+
+  - name: format minio logical volume with xfs filesystem
+    filesystem:
+      dev: /dev/mapper/"{{ volume_name }}"-"{{ volume_name }}"
+      fstype: xfs
+
+  - name: create minio directory
+    file:
+      path: "{{ path_for_mount }}"
+      state: directory
+
+  - name: mount minio logical volume
+    mount:
+      path: "{{ path_for_mount }}"
+      src: /dev/mapper/"{{ volume_name }}"-"{{ volume_name }}"
+      fstype: xfs
+      state: mounted

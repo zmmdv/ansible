@@ -1,0 +1,14 @@
+[all:vars]
+ansible_connection=ssh
+ansible_ssh_pass=89682329
+ansible_user=root
+ansible_become_method=sudo
+ansible_become_user=root
+
+
+volume_name=minio
+disk_path=/dev/sdb
+path_for_mount=/data/minio
+[all]
+
+minio-2 ansible_host=10.130.58.79
