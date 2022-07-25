@@ -17,6 +17,13 @@
     with_file:
       - ~/.ssh/id_rsa.pub
 
+  - name: Installing dependencies Ubuntu
+    package:
+      name: "{{ item }}"
+      state: present
+    with_items:
+    - net-tools
+
 - hosts: balancers
   become: yes
   tasks:
