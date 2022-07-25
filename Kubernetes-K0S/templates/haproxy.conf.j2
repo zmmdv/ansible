@@ -33,19 +33,19 @@ defaults
 	errorfile 504 /etc/haproxy/errors/504.http
 
 frontend kubeAPI
-    bind {{ virtual_ip }}:6443
+    bind {{ virtual_ip }}:6443 tfo
     mode tcp
     default_backend back
 frontend konnectivityAgent
-    bind {{ virtual_ip }}:8132
+    bind {{ virtual_ip }}:8132 tfo
     mode tcp
     default_backend back
 frontend konnectivityServer
-    bind {{ virtual_ip }}:8133
+    bind {{ virtual_ip }}:8133 tfo
     mode tcp
     default_backend back
 frontend controllerJoinAPI
-    bind {{ virtual_ip }}:9443
+    bind {{ virtual_ip }}:9443 tfo
     mode tcp
     default_backend back
 
