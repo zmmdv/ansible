@@ -46,6 +46,7 @@ frontend konnectivityServer
     default_backend back
 frontend controllerJoinAPI
     bind {{ virtual_ip }}:9443
+    mode tcp
     default_backend back
 
 backend back
