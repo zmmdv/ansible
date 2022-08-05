@@ -74,15 +74,19 @@
       name: "{{ item }}"
       state: present
     with_items:
-    - python3-jmespath
+    - python3-pip
     when: ansible_facts['os_family'] == "Debian"
+
+  - name: Install bottle python package on version 0.11
+    ansible.builtin.pip:
+      name: jmespath
 
 - hosts: elk1
   roles:
     - role: elastic.elasticsearch
   vars:
-    es_version: "7.15.0"
-    es_heap_size: "2g"
+    es_version: "7.17.5"
+    es_heap_size: "1g"
     es_data_dirs:
       - "/data/elasticsearch/data"
     es_log_dir: "/data/elasticsearch/log"    
@@ -97,16 +101,13 @@
       transport.host: 0.0.0.0
       transport.port: 9300
       bootstrap.memory_lock: false    
-    es_plugins:
-     - plugin: ingest-attachment
-  tasks:
 
 - hosts: elk2
   roles:
     - role: elastic.elasticsearch
   vars:
-    es_version: "7.15.0"
-    es_heap_size: "2g"
+    es_version: "7.17.5"
+    es_heap_size: "1g"
     es_data_dirs:
       - "/data/elasticsearch/data"
     es_log_dir: "/data/elasticsearch/log"     
@@ -121,15 +122,13 @@
       transport.host: 0.0.0.0
       transport.port: 9300
       bootstrap.memory_lock: false   
-    es_plugins:
-     - plugin: ingest-attachment
 
 - hosts: elk3
   roles:
     - role: elastic.elasticsearch
   vars:
-    es_version: "7.15.0"
-    es_heap_size: "2g"
+    es_version: "7.17.5"
+    es_heap_size: "1g"
     es_data_dirs:
       - "/data/elasticsearch/data"
     es_log_dir: "/data/elasticsearch/log"   
@@ -144,8 +143,6 @@
       transport.host: 0.0.0.0
       transport.port: 9300
       bootstrap.memory_lock: false     
-    es_plugins:
-     - plugin: ingest-attachment
 
 - hosts: elk
   become: yes
@@ -170,13 +167,13 @@
 
   - name: Installing Kibana Ubuntu
     package:
-      name: kibana=7.15.0
+      name: kibana=7.17.5
       state: present
     when: ansible_facts['os_family'] == "Debian"
 
   - name: Installing Kibana Centos
     package:
-      name: kibana-7.15.0
+      name: kibana-7.17.5
       state: present
     when: ansible_facts['os_family'] == "RedHat"
 
