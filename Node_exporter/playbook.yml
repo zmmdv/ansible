@@ -1,0 +1,44 @@
+- hosts: all
+  become: true
+  tasks:
+
+  - name: Download node exporter archive
+    ansible.builtin.get_url:
+      url: https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+      dest: /tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+    delegate_to: localhost
+    connection: local
+    become: no
+
+  - name: Extract foo.tgz into /var/lib/foo
+    ansible.builtin.unarchive:
+      src: /tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+      dest: /usr/local/bin/
+
+  - name: create node exporter group
+    group:
+      name: node_exporter
+      state: present
+
+  - name: create node_exporter user
+    user:
+      name: node_exporter
+      group: node_exporter
+      home: /home/node_exporter
+      shell: /sbin/nologin
+      comment: Node Exporter user
+      state: present
+
+
+  - name: copy node_exporter systemd config
+    template:
+      src: node_exporter.j2
+      dest: /etc/systemd/system/node_exporter.service
+      mode: 0640
+
+  - name: start node_exporter
+    systemd:
+      daemon_reload: yes
+      name: node_exporter
+      enabled: yes
+      state: started
